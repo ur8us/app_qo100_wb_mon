@@ -615,14 +615,14 @@ def draw_signal_overlay(img, sig):
     freq_text = "{:.3f} MHz".format(downlink)
     rate_text = format_symbolrate_long(bw)
 
-    box_w = min(img.width() - 64, 430)
-    box_h = 82
+    box_w = min(img.width() - 24, 560)
+    box_h = 112
     box_x = (img.width() - box_w) // 2
     box_y = 44
     img.draw_rect(box_x, box_y, box_w, box_h, color(4, 8, 12), -1)
     img.draw_rect(box_x, box_y, box_w, box_h, color(210, 220, 230), 2)
-    draw_text_center_fit(img, [box_x + 8, box_y + 9, box_w - 16, 38], freq_text, image.COLOR_WHITE, 2.1, 1.2)
-    draw_text_center_fit(img, [box_x + 8, box_y + 48, box_w - 16, 27], rate_text, image.COLOR_WHITE, 1.45, 1.0)
+    draw_text_center_fit(img, [box_x + 8, box_y + 12, box_w - 16, 55], freq_text, image.COLOR_WHITE, 3.15, 1.8)
+    draw_text_center_fit(img, [box_x + 8, box_y + 70, box_w - 16, 34], rate_text, image.COLOR_WHITE, 2.18, 1.5)
 
 
 def draw_exit(img, touched):
