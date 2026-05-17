@@ -13,6 +13,7 @@ The app opens the same BATC wideband FFT feed used by <https://eshail.batc.org.u
 - Falls back to BATC's current IP address if local DNS is broken, while keeping TLS SNI and the HTTP `Host` header set to `eshail.batc.org.uk`.
 - Validates the WebSocket handshake, loads the system CA bundle explicitly on MaixPy, replies to server pings, and reconnects with backoff if the feed drops.
 - Shows the active connection source and reconnect count in the status line.
+- While touching the spectrum, shows the nearest detected signal's downlink frequency and symbol rate in large white text.
 - Draws the QO-100 wideband scale, beacon marker, DATV channel markers, live spectrum, and simple signal bandwidth/frequency labels.
 - Runs without third-party Python packages on MaixPy.
 
@@ -37,7 +38,8 @@ The package is installed through `app_store_cli` and appears in the MaixCAM laun
 1. Make sure the MaixCAM2 has internet access.
 2. Start `QO-100 WB Monitor` from the launcher.
 3. The display connects to the BATC QO-100 wideband FFT feed and starts drawing the live spectrum.
-4. Tap the `X` button in the top-left corner to exit.
+4. Touch and hold near a signal to show its downlink frequency and symbol rate. Release to hide the readout.
+5. Tap the `X` button in the top-left corner to exit.
 
 If the camera can reach the internet but cannot resolve DNS names, configure working DNS servers on the camera. The app includes a fallback IP for BATC, but fixing DNS is still recommended for normal MaixCAM networking.
 

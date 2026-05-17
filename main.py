@@ -345,6 +345,15 @@ def draw_text_right(img, x, y, text, col, scale=1):
     img.draw_string(int(x - text_width(text, scale)), int(y), text, col, scale)
 
 
+def draw_text_center_fit(img, box, text, col, max_scale=2.0, min_scale=0.8):
+    scale = max_scale
+    while scale > min_scale and text_width(text, scale) > box[2] - 12:
+        scale -= 0.1
+    x = box[0] + box[2] // 2
+    y = box[1] + int((box[3] - text_height(scale)) / 2)
+    draw_text_center(img, x, y, text, col, scale)
+
+
 def freq_to_x(freq_mhz, plot_x, plot_w):
     return int(plot_x + ((freq_mhz - FFT_START_MHZ) / FFT_SPAN_MHZ) * plot_w)
 
@@ -390,6 +399,15 @@ def format_symbolrate(symrate_ms):
     if symrate_ms < 0.7:
         return "{}KS".format(int(round(symrate_ms * 1000)))
     return "{:.1f}MS".format(round(symrate_ms * 10) / 10)
+
+
+def format_symbolrate_long(symrate_ms):
+    if symrate_ms < 0.7:
+        return "{} KS/s".format(int(round(symrate_ms * 1000)))
+    value = round(symrate_ms * 10) / 10
+    if abs(value - int(value)) < 0.01:
+        return "{} MS/s".format(int(value))
+    return "{:.1f} MS/s".format(value)
 
 
 def format_short_freq(freq_rel, symrate_ms):
@@ -561,6 +579,52 @@ def draw_status(img, frames, last_frame_ms, status, error, source, reconnects):
     draw_text_right(img, img.width() - 8, img.height() - 24, "tap X to exit", COL_MUTED, 0.75)
 
 
+def nearest_signal(signals, touch_x, touch_y, graph_bottom):
+    if not signals:
+        return None
+    best = None
+    best_d2 = None
+    for sig in signals:
+        x1, x2, top, rel_freq, bw, strength = sig
+        if bw <= 0:
+            continue
+        if touch_x < x1:
+            dx = x1 - touch_x
+        elif touch_x > x2:
+            dx = touch_x - x2
+        else:
+            dx = 0
+        if touch_y < top:
+            dy = top - touch_y
+        elif touch_y > graph_bottom:
+            dy = touch_y - graph_bottom
+        else:
+            dy = 0
+        d2 = dx * dx + dy * dy
+        if best is None or d2 < best_d2:
+            best = sig
+            best_d2 = d2
+    return best
+
+
+def draw_signal_overlay(img, sig):
+    if sig is None:
+        return
+    x1, x2, top, rel_freq, bw, strength = sig
+    downlink = 10000.0 + rel_freq
+    freq_text = "{:.3f} MHz".format(downlink)
+    rate_text = format_symbolrate_long(bw)
+
+    box_w = min(img.width() - 64, 430)
+    box_h = 82
+    box_x = (img.width() - box_w) // 2
+    box_y = 44
+    img.draw_rect(box_x, box_y, box_w, box_h, color(4, 8, 12), -1)
+    img.draw_rect(box_x, box_y, box_w, box_h, color(210, 220, 230), 2)
+    draw_text_center_fit(img, [box_x + 8, box_y + 9, box_w - 16, 38], freq_text, image.COLOR_WHITE, 2.1, 1.2)
+    draw_text_center_fit(img, [box_x + 8, box_y + 48, box_w - 16, 27], rate_text, image.COLOR_WHITE, 1.45, 1.0)
+
+
 def draw_exit(img, touched):
     bg = COL_RED if touched else color(28, 34, 40)
     img.draw_rect(6, 4, 38, 26, bg, -1)
@@ -615,11 +679,14 @@ screenshot_saved = False
 
 try:
     while not app.need_exit():
+        touch = None
         touched_exit = False
         if ts:
             try:
-                touched_exit = is_exit_touch(ts.read())
+                touch = ts.read()
+                touched_exit = is_exit_touch(touch)
             except Exception:
+                touch = None
                 touched_exit = False
         if touched_exit:
             app.set_exit_flag(True)
@@ -627,7 +694,10 @@ try:
 
         frame, frames, last_frame_ms, status, error, source, reconnects = client.snapshot()
         draw_grid(base_img, plot_x, plot_y, plot_w, plot_h, graph_top, graph_bottom)
-        draw_spectrum(base_img, frame, plot_x, plot_w, graph_top, graph_bottom)
+        signals, beacon_strength = draw_spectrum(base_img, frame, plot_x, plot_w, graph_top, graph_bottom)
+        if touch and touch[2]:
+            sig = nearest_signal(signals, touch[0], touch[1], graph_bottom)
+            draw_signal_overlay(base_img, sig)
         draw_status(base_img, frames, last_frame_ms, status, error, source, reconnects)
         draw_exit(base_img, touched_exit)
         disp.show(base_img)
