@@ -6,6 +6,10 @@
 
 The app opens the same BATC wideband FFT feed used by <https://eshail.batc.org.uk/wb/>, decodes the binary WebSocket spectrum frames, and draws the 10.4905 to 10.4995 GHz wideband view directly on the MaixCAM2 screen. It shows the A71A beacon area, DATV channel markers, a live spectrum trace, detected signal labels, and connection status.
 
+## Video
+
+Demo video: <https://www.youtube.com/watch?v=ltNM1h79OLs>
+
 ## Features
 
 - Starts immediately into the live spectrum view.
@@ -87,3 +91,7 @@ To run the installed app remotely, wait 10 seconds, and pull the screenshot into
 ```sh
 ./scripts/test_remote.sh root@<camera-host>
 ```
+
+## Development Note
+
+This project was built with help from Codex 5.5. The prompts were sent from a cell phone. In about 25 minutes the result was a fully working MaixCAM2 application, with a few more minutes used to add the large frequency and symbol-rate display that appears when the user touches the screen.
