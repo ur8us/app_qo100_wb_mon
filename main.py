@@ -625,6 +625,18 @@ def draw_signal_overlay(img, sig):
     draw_text_center_fit(img, [box_x + 8, box_y + 70, box_w - 16, 34], rate_text, image.COLOR_WHITE, 2.18, 1.5)
 
 
+def draw_signal_selection(img, sig, graph_bottom):
+    if sig is None:
+        return
+    x1, x2, top, rel_freq, bw, strength = sig
+    pad = 4
+    left = max(0, int(x1) - pad)
+    right = min(img.width() - 1, int(x2) + pad)
+    upper = max(32, int(top) - pad)
+    lower = min(img.height() - 32, int(graph_bottom) + pad)
+    img.draw_rect(left, upper, max(2, right - left), max(2, lower - upper), image.COLOR_WHITE, 3)
+
+
 def draw_exit(img, touched):
     bg = COL_RED if touched else color(28, 34, 40)
     img.draw_rect(6, 4, 38, 26, bg, -1)
@@ -697,6 +709,7 @@ try:
         signals, beacon_strength = draw_spectrum(base_img, frame, plot_x, plot_w, graph_top, graph_bottom)
         if touch and touch[2]:
             sig = nearest_signal(signals, touch[0], touch[1], graph_bottom)
+            draw_signal_selection(base_img, sig, graph_bottom)
             draw_signal_overlay(base_img, sig)
         draw_status(base_img, frames, last_frame_ms, status, error, source, reconnects)
         draw_exit(base_img, touched_exit)
