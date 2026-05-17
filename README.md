@@ -11,6 +11,8 @@ The app opens the same BATC wideband FFT feed used by <https://eshail.batc.org.u
 - Starts immediately into the live spectrum view.
 - Uses BATC's `wss://eshail.batc.org.uk/wb/fft` FFT feed.
 - Falls back to BATC's current IP address if local DNS is broken, while keeping TLS SNI and the HTTP `Host` header set to `eshail.batc.org.uk`.
+- Validates the WebSocket handshake, loads the system CA bundle explicitly on MaixPy, replies to server pings, and reconnects with backoff if the feed drops.
+- Shows the active connection source and reconnect count in the status line.
 - Draws the QO-100 wideband scale, beacon marker, DATV channel markers, live spectrum, and simple signal bandwidth/frequency labels.
 - Runs without third-party Python packages on MaixPy.
 
@@ -53,6 +55,21 @@ systemctl restart systemd-resolved
 getent hosts eshail.batc.org.uk
 ```
 
+The same fix can be applied from the development computer:
+
+```sh
+./scripts/fix_dns.sh root@<camera-host>
+```
+
+## Connection Settings
+
+The default feed settings should normally be left unchanged. For testing or a local relay, these environment variables are available:
+
+- `QO100_WB_HOST`: WebSocket host name, default `eshail.batc.org.uk`.
+- `QO100_WB_PATH`: WebSocket path, default `/wb/fft`.
+- `QO100_WB_PROTOCOL`: WebSocket subprotocol, default `fft`.
+- `QO100_WB_FALLBACK_IPS`: comma-separated fallback IPs, default `185.83.169.27`.
+
 ## Development Test
 
 For a one-shot remote screenshot during development, run the app with:
@@ -62,3 +79,9 @@ QO100_WB_SCREENSHOT=/tmp/qo100_wb_mon.jpg QO100_WB_SCREENSHOT_AFTER=10 python3 m
 ```
 
 The saved image is the exact frame drawn by the MaixPy renderer after the requested delay.
+
+To run the installed app remotely, wait 10 seconds, and pull the screenshot into the README image path:
+
+```sh
+./scripts/test_remote.sh root@<camera-host>
+```

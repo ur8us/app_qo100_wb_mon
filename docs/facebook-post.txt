@@ -1,0 +1,6 @@
+I made a small MaixCAM2 app for QO-100 DATV operators: QO-100 WB Monitor.
+
+It opens the BATC QO-100 wideband FFT feed and draws the live 10.4905-10.4995 GHz wideband spectrum directly on the MaixCAM2 screen, including the A71A beacon area, DATV channel markers, and simple signal labels. It starts straight into the spectrum view, so the camera can be used as a small desk monitor while setting up or checking the wideband transponder.
+
+Source and install notes:
+https://github.com/ur8us/app_qo100_wb_mon

@@ -1,5 +1,6 @@
 from maix import app, display, image, time, touchscreen
 import base64
+import hashlib
 import os
 import socket
 import ssl
@@ -9,16 +10,25 @@ import _thread
 
 APP_TITLE = "QO-100 WB Monitor"
 
-BATC_HOST = "eshail.batc.org.uk"
-BATC_FALLBACK_IP = "185.83.169.27"
+BATC_HOST = os.environ.get("QO100_WB_HOST", "eshail.batc.org.uk")
 BATC_PORT = 443
-BATC_PATH = "/wb/fft"
-BATC_PROTOCOL = "fft"
+BATC_PATH = os.environ.get("QO100_WB_PATH", "/wb/fft")
+BATC_PROTOCOL = os.environ.get("QO100_WB_PROTOCOL", "fft")
+BATC_FALLBACK_IPS = tuple(
+    ip.strip()
+    for ip in os.environ.get("QO100_WB_FALLBACK_IPS", "185.83.169.27").split(",")
+    if ip.strip()
+)
+WS_GUID = "258EAFA5-E914-47DA-95CA-C5AB0DC85B11"
 CAFILE_CANDIDATES = (
     "/etc/ssl/certs/ca-certificates.crt",
     "/usr/lib/ssl/cert.pem",
     "/etc/ssl/cert.pem",
 )
+CONNECT_TIMEOUT_S = 10
+READ_TIMEOUT_S = 12
+RECONNECT_BASE_MS = 500
+RECONNECT_MAX_MS = 10000
 
 FFT_START_MHZ = 10490.5
 FFT_SPAN_MHZ = 9.0
@@ -71,6 +81,8 @@ class BatcFftClient:
         self.last_frame_ms = 0
         self.status = "starting"
         self.error = ""
+        self.source = ""
+        self.reconnects = 0
         self.running = True
         self.sock = None
 
@@ -84,15 +96,25 @@ class BatcFftClient:
     def snapshot(self):
         self.lock.acquire()
         try:
-            return self.latest, self.frames, self.last_frame_ms, self.status, self.error
+            return (
+                self.latest,
+                self.frames,
+                self.last_frame_ms,
+                self.status,
+                self.error,
+                self.source,
+                self.reconnects,
+            )
         finally:
             self.lock.release()
 
-    def _set_status(self, status, error=""):
+    def _set_status(self, status, error="", source=None):
         self.lock.acquire()
         try:
             self.status = status
             self.error = error
+            if source is not None:
+                self.source = source
         finally:
             self.lock.release()
 
@@ -117,30 +139,63 @@ class BatcFftClient:
                 pass
 
     def _run(self):
+        backoff_ms = RECONNECT_BASE_MS
         while self.running:
             try:
                 self._set_status("connecting")
                 self._connect_and_read()
+                backoff_ms = RECONNECT_BASE_MS
             except Exception as e:
+                self.lock.acquire()
+                try:
+                    self.reconnects += 1
+                finally:
+                    self.lock.release()
                 self._set_status("reconnecting", str(e))
                 print("BATC websocket reconnect: {}".format(e))
             self._close()
-            for _ in range(20):
+            delay_ms = backoff_ms
+            backoff_ms = min(RECONNECT_MAX_MS, backoff_ms * 2)
+            for _ in range(max(1, delay_ms // 100)):
                 if not self.running:
                     break
                 time.sleep_ms(100)
 
     def _connect_socket(self):
         last_error = None
-        for target in (BATC_HOST, BATC_FALLBACK_IP):
+        for target in self._connection_targets():
             try:
-                raw = socket.create_connection((target, BATC_PORT), timeout=10)
+                raw = socket.create_connection((target, BATC_PORT), timeout=CONNECT_TIMEOUT_S)
                 ctx = self._ssl_context()
-                return ctx.wrap_socket(raw, server_hostname=BATC_HOST)
+                return ctx.wrap_socket(raw, server_hostname=BATC_HOST), target
             except Exception as e:
                 last_error = e
                 print("connect {} failed: {}".format(target, e))
         raise last_error
+
+    def _connection_targets(self):
+        targets = []
+        seen = set()
+
+        def add(target):
+            if target and target not in seen:
+                seen.add(target)
+                targets.append(target)
+
+        try:
+            infos = socket.getaddrinfo(BATC_HOST, BATC_PORT, 0, socket.SOCK_STREAM)
+            for info in infos:
+                try:
+                    add(info[4][0])
+                except Exception:
+                    pass
+        except Exception as e:
+            print("DNS lookup {} failed: {}".format(BATC_HOST, e))
+
+        for ip in BATC_FALLBACK_IPS:
+            add(ip)
+        add(BATC_HOST)
+        return targets
 
     def _ssl_context(self):
         for cafile in CAFILE_CANDIDATES:
@@ -152,9 +207,10 @@ class BatcFftClient:
         return ssl.create_default_context()
 
     def _connect_and_read(self):
-        s = self._connect_socket()
-        s.settimeout(12)
+        s, source = self._connect_socket()
+        s.settimeout(READ_TIMEOUT_S)
         self.sock = s
+        self._set_status("handshake", source=source)
 
         key = base64.b64encode(os.urandom(16)).decode("ascii")
         request = (
@@ -181,11 +237,9 @@ class BatcFftClient:
                 raise RuntimeError("websocket handshake too large")
 
         head, rest = header.split(b"\r\n\r\n", 1)
-        status_line = head.split(b"\r\n", 1)[0].decode("latin1")
-        if "101" not in status_line:
-            raise RuntimeError(status_line)
+        self._validate_handshake(head, key)
 
-        self._set_status("waiting")
+        self._set_status("waiting", source=source)
         buf = rest
         while self.running:
             opcode, payload, buf = self._read_frame(s, buf)
@@ -198,6 +252,31 @@ class BatcFftClient:
                 raise RuntimeError("server closed websocket")
             elif opcode == 9:
                 self._send_control(s, 10, payload)
+            elif opcode in (1, 10):
+                pass
+            else:
+                print("ignored websocket opcode {}".format(opcode))
+
+    def _validate_handshake(self, head, key):
+        lines = head.decode("latin1").split("\r\n")
+        status_line = lines[0] if lines else ""
+        parts = status_line.split()
+        if len(parts) < 2 or parts[1] != "101":
+            raise RuntimeError(status_line)
+
+        headers = {}
+        for line in lines[1:]:
+            if ":" in line:
+                k, v = line.split(":", 1)
+                headers[k.strip().lower()] = v.strip()
+
+        expected = base64.b64encode(hashlib.sha1((key + WS_GUID).encode("ascii")).digest()).decode("ascii")
+        if headers.get("sec-websocket-accept", "") != expected:
+            raise RuntimeError("bad websocket accept")
+
+        protocol = headers.get("sec-websocket-protocol", "")
+        if protocol and protocol != BATC_PROTOCOL:
+            raise RuntimeError("bad websocket protocol {}".format(protocol))
 
     def _need(self, s, buf, count):
         while len(buf) < count:
@@ -461,19 +540,22 @@ def draw_spectrum(img, frame, plot_x, plot_w, graph_top, graph_bottom):
     return signals, beacon_strength
 
 
-def draw_status(img, frames, last_frame_ms, status, error):
+def draw_status(img, frames, last_frame_ms, status, error, source, reconnects):
     age_ms = now_ms() - last_frame_ms if last_frame_ms else 0
     if status == "live" and age_ms < 3000:
-        msg = "Live frames: {}  age: {:.1f}s".format(frames, age_ms / 1000.0)
+        source_text = source
+        if len(source_text) > 15:
+            source_text = source_text[:12] + "..."
+        msg = "Live {}  age {:.1f}s  via {}  rc {}".format(frames, age_ms / 1000.0, source_text, reconnects)
         col = COL_GREEN
-    elif status in ("connecting", "waiting"):
+    elif status in ("connecting", "handshake", "waiting"):
         msg = "{} {}".format(status, BATC_HOST)
         col = COL_YELLOW
     else:
         short_error = error
         if len(short_error) > 42:
             short_error = short_error[:39] + "..."
-        msg = "{} {}".format(status, short_error)
+        msg = "{} {} rc {}".format(status, short_error, reconnects)
         col = COL_RED
     img.draw_string(8, img.height() - 24, msg, col, 0.8)
     draw_text_right(img, img.width() - 8, img.height() - 24, "tap X to exit", COL_MUTED, 0.75)
@@ -543,10 +625,10 @@ try:
             app.set_exit_flag(True)
             break
 
-        frame, frames, last_frame_ms, status, error = client.snapshot()
+        frame, frames, last_frame_ms, status, error, source, reconnects = client.snapshot()
         draw_grid(base_img, plot_x, plot_y, plot_w, plot_h, graph_top, graph_bottom)
         draw_spectrum(base_img, frame, plot_x, plot_w, graph_top, graph_bottom)
-        draw_status(base_img, frames, last_frame_ms, status, error)
+        draw_status(base_img, frames, last_frame_ms, status, error, source, reconnects)
         draw_exit(base_img, touched_exit)
         disp.show(base_img)
         screenshot_saved = maybe_save_screenshot(base_img, start_ms, screenshot_saved)
