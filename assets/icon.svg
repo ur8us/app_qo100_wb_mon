@@ -1,0 +1,45 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" role="img" aria-label="QO-100 WB Monitor icon">
+  <defs>
+    <linearGradient id="bg" x1="24" y1="18" x2="226" y2="238" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#152434"/>
+      <stop offset="0.55" stop-color="#071118"/>
+      <stop offset="1" stop-color="#030608"/>
+    </linearGradient>
+    <linearGradient id="screen" x1="46" y1="64" x2="213" y2="196" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#101922"/>
+      <stop offset="1" stop-color="#060b10"/>
+    </linearGradient>
+    <linearGradient id="trace" x1="45" y1="169" x2="212" y2="91" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#00b85d"/>
+      <stop offset="0.5" stop-color="#23f47f"/>
+      <stop offset="1" stop-color="#d9ff65"/>
+    </linearGradient>
+    <linearGradient id="arc" x1="56" y1="30" x2="216" y2="105" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#ffe066"/>
+      <stop offset="1" stop-color="#f89f24"/>
+    </linearGradient>
+  </defs>
+
+  <rect x="12" y="12" width="232" height="232" rx="48" fill="url(#bg)"/>
+  <rect x="25" y="25" width="206" height="206" rx="38" fill="none" stroke="#2b3e4c" stroke-width="3" opacity="0.72"/>
+
+  <g>
+    <rect x="39" y="68" width="184" height="132" rx="18" fill="#000000" opacity="0.36"/>
+    <rect x="36" y="61" width="184" height="132" rx="18" fill="url(#screen)" stroke="#385061" stroke-width="3"/>
+    <path d="M48 91H208M48 121H208M48 151H208M75 73V181M128 73V181M181 73V181" stroke="#2a3c48" stroke-width="2" opacity="0.85"/>
+    <path d="M48 160L57 138L66 139L75 137L84 153L93 154L102 129L111 130L120 129L129 151L138 151L147 119L156 120L165 121L174 145L183 146L192 105L201 107L210 107" fill="none" stroke="url(#trace)" stroke-width="9" stroke-linejoin="round" stroke-linecap="round"/>
+    <path d="M48 160L57 138L66 139L75 137L84 153L93 154L102 129L111 130L120 129L129 151L138 151L147 119L156 120L165 121L174 145L183 146L192 105L201 107L210 107L210 178L48 178Z" fill="#00e36f" opacity="0.42"/>
+    <path d="M62 181H100M111 181H153M164 181H207" stroke="#2e78ff" stroke-width="5" stroke-linecap="round"/>
+    <path d="M70 169H91M115 169H138M167 169H194" stroke="#2e78ff" stroke-width="3" stroke-linecap="round" opacity="0.62"/>
+  </g>
+
+  <path d="M63 61C91 31 143 22 190 40" fill="none" stroke="url(#arc)" stroke-width="8" stroke-linecap="round"/>
+  <circle cx="199" cy="44" r="9" fill="#ffe066"/>
+  <path d="M203 27L222 46L204 65L185 46Z" fill="#f7b733" stroke="#ffe59d" stroke-width="3" stroke-linejoin="round"/>
+  <path d="M191 33L216 58M216 33L191 58" stroke="#744717" stroke-width="3" stroke-linecap="round" opacity="0.6"/>
+
+  <g>
+    <rect x="55" y="203" width="146" height="29" rx="14.5" fill="#0b1821" stroke="#2c4656" stroke-width="2"/>
+    <text x="128" y="223" text-anchor="middle" font-family="DejaVu Sans, Arial, sans-serif" font-size="18" font-weight="700" fill="#ffe066">QO-100 WB</text>
+  </g>
+</svg>

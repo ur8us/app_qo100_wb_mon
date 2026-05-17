@@ -2,7 +2,7 @@ id: qo100_wb_mon
 name: QO-100 WB Monitor
 name[zh]: QO-100 宽带监视器
 version: 1.0.0
-icon: assets/wb.json
+icon: assets/icon.png
 author: Denis UR8US/S58UA
 desc: Live QO-100 wideband spectrum monitor for MaixCAM2
 desc[zh]: MaixCAM2 上的 QO-100 宽带频谱监视器
